@@ -40,7 +40,8 @@ button,input,select{font-family:inherit;font-size:inherit}
 main{max-width:1180px;margin:0 auto;padding:18px clamp(12px,3vw,28px) 40px;display:flex;flex-direction:column;gap:16px}
 
 /* ---------- KPI ---------- */
-.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+@media(max-width:860px){.kpis{grid-template-columns:repeat(2,1fr)}}
 .kpi{background:var(--card);border:1px solid var(--line);border-radius:9px;padding:12px 14px 10px;position:relative;overflow:hidden}
 .kpi::before{content:"";position:absolute;inset:0 0 auto 0;height:3px;background:var(--green)}
 .kpi.best::before{background:var(--gold)} .kpi.worst::before{background:var(--red)}
@@ -56,6 +57,8 @@ main{max-width:1180px;margin:0 auto;padding:18px clamp(12px,3vw,28px) 40px;displ
 .f select,.f input{min-width:130px;padding:7px 9px;border:1px solid var(--line-strong);border-radius:6px;background:#FBFDF9;color:var(--ink)}
 .f select:hover,.f input:hover{border-color:var(--green)}
 .f input{min-width:170px}
+.fbar .grow{flex:1 1 200px;max-width:380px}
+.fbar .grow input{width:100%;box-sizing:border-box}
 .tblbar{display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap;margin-bottom:10px}
 .seg{display:inline-flex;border:1px solid var(--line-strong);border-radius:7px;overflow:hidden}
 .seg button{border:none;background:#fff;padding:7px 12px;cursor:pointer;font-size:12px;color:var(--mut)}
@@ -71,7 +74,7 @@ tr.ygroup:hover td{background:#D8E7DA}
 @media(max-width:640px){
   .top{padding:14px 14px}
   .f select,.f input{min-width:104px}
-  .f input{min-width:130px}
+  .f input{min-width:130px}.f{min-width:0}.f select,.f input{max-width:100%;box-sizing:border-box}
   .kpi .v{font-size:24px}
   .crow,.chead{grid-template-columns:minmax(88px,1.5fr) 34px 34px 40px 1fr;gap:6px}
   .modal{padding:14px 12px}
@@ -233,17 +236,16 @@ footer .reset{color:var(--red);border:none;background:none;cursor:pointer;text-d
 </header>
 
 <main>
-  <section class="kpis" id="kpis" aria-label="サマリー"></section>
-
   <section class="fbar" aria-label="絞り込み">
     <div class="f"><label for="fYear">年度・期間</label><select id="fYear"></select></div>
     <div class="f"><label for="fCourse">コース</label><select id="fCourse"></select></div>
-    <div class="f"><label for="fWeather">天気</label><select id="fWeather"></select></div>
-    <div class="f"><label for="fQ">検索</label><input id="fQ" type="search" placeholder="ゴルフ場名・メモを検索"></div>
+    <div class="f grow"><label for="fQ">検索</label><input id="fQ" type="search" placeholder="ゴルフ場名・メモを検索"></div>
     <div class="spacer"></div>
     <div class="count" id="count"></div>
     <button class="btn small" id="resetBtn" style="color:#B3402E;border-color:#B3402E" type="button">絞り込み解除</button>
   </section>
+
+  <section class="kpis" id="kpis" aria-label="サマリー"></section>
 
   <section class="grid2">
     <div class="card"><h2>スコア推移 <span class="hint">緑線=5ラウンド移動平均 / 金枠=ベスト</span></h2><svg class="chart" id="trend" role="img" aria-label="スコア推移"></svg></div>
@@ -511,6 +513,7 @@ function chartBars(svg, items, opts){
 
 /* ---------- KPI ---------- */
 function renderKpis(list){
+  const pctStr = (x, total) => { const p = x/total*100; return (p>0 && p<1 ? p.toFixed(1) : Math.round(p)) + "%"; };
   const tots = list.map(r=>r.tot).filter(v=>v!=null);
   const puts = list.map(r=>r.putt).filter(v=>v!=null);
   const diffs = list.map(r=>r.diff).filter(v=>v!=null);
@@ -530,11 +533,12 @@ function renderKpis(list){
     {lb:"ラウンド数", v:list.length, s:"件", n: list.length ? `${list[0].d} 〜 ${list[list.length-1].d}` : "—"},
     {lb:"平均スコア", v:a?a.toFixed(1):"—", n:`対パー平均 ${a!=null&&diffs.length? (avg(diffs)>0?"+":"")+avg(diffs).toFixed(1):"—"}`},
     {lb:"直近10R 平均スコア", v:avg10!=null?avg10.toFixed(1):"—", n:`対パー ${davg10!=null?(davg10>0?"+":"")+davg10.toFixed(1):"—"}${cmpAll?` / 全体比 ${cmpAll}`:""}`},
-    {lb:"直近10R パット", v:pavg10!=null?pavg10.toFixed(1):"—", s:"打", n:`全体平均 ${avg(puts)?avg(puts).toFixed(1):"—"}`},
+    {lb:"平均パット", v:avg(puts)?avg(puts).toFixed(1):"—", s:"打", n:"1ラウンドあたり"},
+    {lb:"直近10R 平均パット", v:pavg10!=null?pavg10.toFixed(1):"—", s:"打", n:`全体平均 ${avg(puts)?avg(puts).toFixed(1):"—"}`},
     {lb:"ベスト", v:tots.length?Math.min(...tots):"—", cls:"best", n: bestR?`${fmtDateJP(bestR.d)} ${bestR.club.split("/")[0].slice(0,12)}`:""},
     {lb:"ワースト", v:tots.length?Math.max(...tots):"—", cls:"worst", n:""},
-    {lb:"平均パット", v:avg(puts)?avg(puts).toFixed(1):"—", s:"打", n:"1ラウンドあたり"},
-    {lb:"80切り", v:tots.filter(v=>v<80).length, s:"回", n:`90切り ${tots.filter(v=>v<90).length}回`},
+    {lb:"90切り", v:tots.filter(v=>v<90).length, s:"回", n: tots.length?`全ラウンドの${pctStr(tots.filter(v=>v<90).length, tots.length)}`:""},
+    {lb:"80切り", v:tots.filter(v=>v<80).length, s:"回", n: tots.length?`全ラウンドの${pctStr(tots.filter(v=>v<80).length, tots.length)}`:""},
   ];
   const w = document.getElementById("kpis");
   w.innerHTML = "";
@@ -720,15 +724,16 @@ function openModal(i){
     };
     const line = (label, arr, f, sumFmt) => {
       const c = cells(arr, f);
-      return `<tr><td class="lbl">${label}</td><td>${c.h1}</td><td class="sum">${sumFmt?sumFmt(c.s1):c.s1||""}</td>${c.has2?`<td>${c.h2}</td><td class="sum">${sumFmt?sumFmt(c.s2):c.s2||""}</td><td class="sum">${c.s1+c.s2}</td>`:""}</tr>`;
+      /* 各行: ラベル | 前9Hのセル群 | OUT計 | 後9Hのセル群 | IN計 | 合計(ヘッダーと列を一致させる) */
+      return `<tr><td class="lbl">${label}</td>${c.h1}<td class="sum">${sumFmt?sumFmt(c.s1):(c.s1||"")}</td>${c.has2?`${c.h2}<td class="sum">${sumFmt?sumFmt(c.s2):(c.s2||"")}</td>`:""}<td class="sum">${sumFmt?sumFmt(c.s1+(c.s2||0)):(c.s1+(c.s2||0)||"")}</td></tr>`;
     };
-    const yl = L.y && L.y.length===hr.length ? L.y : null;
+    const yl = L.y && L.y.length===hr.length && L.y.some(v=>v!=null) ? L.y : null; /* ヤード未入力(GN+ CSV経由・写真入力)の行は表示しない */
     sc_table = `<table class="sc"><tr><td class="hn">HOLE</td>${hr.slice(0,half).map((h,j)=>`<th>${j+1}</th>`).join("")}<th>OUT</th>${hr.length>half?hr.slice(half).map((h,j)=>`<th>${half+j+1}</th>`).join("")+"<th>IN</th>":""}<th>TOT</th></tr>
     ${yl ? line("Yard", yl, v=>`<td>${v??""}</td>`, s=>s||"") : ""}
     ${line("Par", L.p, v=>`<td>${v??""}</td>`)}
     ${line("Score", hr.map(h=>h.sc), (v,j)=>`<td>${v!=null?markHTML(v, L.p[j]):""}</td>`)}
     ${line("Putt", hr.map(h=>h.putt), v=>`<td>${v??""}</td>`, s=>s)}
-    </tr></table>`;
+    </table>`;
   } else {
     sc_table = `<div class="empty">このラウンドにはホール別データがありません。<br>OUT ${e.out??"—"} / IN ${e.inn??"—"} / TOTAL ${e.tot??"—"}(合計パット ${e.putt??"—"})</div>`;
   }
@@ -783,13 +788,10 @@ function buildFilterOptions(list){
   /* 特定のコース名がある時だけ「(コース名)」を添える(総称のみのゴルフ場はダッシュを表示しない) */
   const courseNames = new Map(ALL().map(r=>[courseKey(r), r.course ? r.club+"("+r.course+")" : r.club]));
   fillSelect("fCourse", [{v:"all",t:"全コース"}].concat(cs.map(k=>({v:k,t:courseNames.get(k)}))), state.course);
-  const ws = [...new Set(ALL().map(r=>r.w).filter(Boolean))];
-  fillSelect("fWeather", [{v:"all",t:"全て"}].concat(ws.map(w=>({v:w,t:w}))), state.weather);
 }
 function syncFilterSelects(){
   document.getElementById("fYear").value = state.year;
   document.getElementById("fCourse").value = state.course;
-  document.getElementById("fWeather").value = state.weather;
   document.getElementById("fQ").value = state.q;
 }
 
@@ -842,7 +844,6 @@ function render(){
 /* ---------- イベント ---------- */
 document.getElementById("fYear").addEventListener("change", e=>{ state.year = e.target.value; render(); });
 document.getElementById("fCourse").addEventListener("change", e=>{ state.course = e.target.value; render(); });
-document.getElementById("fWeather").addEventListener("change", e=>{ state.weather = e.target.value; render(); });
 let qTimer;
 document.getElementById("tblYear").addEventListener("change", e=>{ state.tblYear = e.target.value; render(); });
 document.getElementById("viewDrop").addEventListener("click", ()=>{ if(state.view!=="dropdown"){ state.view="dropdown"; persist(); render(); } });
