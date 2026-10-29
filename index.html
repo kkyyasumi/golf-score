@@ -66,6 +66,17 @@ tr.ygroup .car{display:inline-block;width:16px;font-size:10px;transition:transfo
 tr.ygroup.closed .car{transform:rotate(-90deg)}
 tr.ygroup .gsum{font-weight:400;font-size:11.5px;color:var(--mut);margin-left:10px}
 tr.ygroup:hover td{background:#D8E7DA}
+
+/* ---------- small screens ---------- */
+@media(max-width:640px){
+  .top{padding:14px 14px}
+  .f select,.f input{min-width:104px}
+  .f input{min-width:130px}
+  .kpi .v{font-size:24px}
+  .crow,.chead{grid-template-columns:minmax(88px,1.5fr) 34px 34px 40px 1fr;gap:6px}
+  .modal{padding:14px 12px}
+  .tile .v{font-size:17px}
+}
 .fbar .spacer{flex:1}
 .count{font-size:12px;color:var(--mut);align-self:center;white-space:nowrap}
 .count b{color:var(--pine);font-size:16px;font-family:var(--disp)}
@@ -88,6 +99,8 @@ svg.chart .bar{fill:var(--green)}
 svg.chart .bar:hover{fill:var(--pine);cursor:pointer}
 svg.chart .bar.dim{fill:#9DB8A4}
 svg.chart .barlbl{fill:var(--ink);font-size:10px;font-variant-numeric:tabular-nums}
+.scwrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.sc{min-width:560px}
 .tip{position:fixed;z-index:60;pointer-events:none;background:var(--pine);color:#F2F6EF;font-size:12px;padding:6px 9px;border-radius:6px;display:none;max-width:240px;line-height:1.4}
 
 /* ---------- course rows ---------- */
@@ -187,10 +200,10 @@ footer .reset{color:var(--red);border:none;background:none;cursor:pointer;text-d
   <section class="kpis" id="kpis" aria-label="サマリー"></section>
 
   <section class="fbar" aria-label="絞り込み">
-    <div class="f"><label for="fYear">年度</label><select id="fYear"></select></div>
+    <div class="f"><label for="fYear">年度・期間</label><select id="fYear"></select></div>
     <div class="f"><label for="fCourse">コース</label><select id="fCourse"></select></div>
     <div class="f"><label for="fWeather">天気</label><select id="fWeather"></select></div>
-    <div class="f"><label for="fQ">メモ検索</label><input id="fQ" type="search" placeholder="メモを検索"></div>
+    <div class="f"><label for="fQ">検索</label><input id="fQ" type="search" placeholder="ゴルフ場名・メモを検索"></div>
     <div class="spacer"></div>
     <div class="count" id="count"></div>
     <button class="btn small" id="resetBtn" style="color:#B3402E;border-color:#B3402E" type="button">絞り込み解除</button>
@@ -273,10 +286,23 @@ function persist(){
   }catch(e){ toast("ブラウザー内保存に失敗しました(容量制限)"); }
 }
 const pad2 = n => String(n).padStart(2,"0");
+/* コース名の表記ゆれを統一: ①「和名/英名」→和名 ②英文の後置(スペース区切り)を除去 ③中点の半角/全角を統一 ④全角スペース正規化 */
+function normClub(s){
+  s = String(s || "").replace(/\u3000/g, " ").replace(/・|･/g, "・").trim();
+  if(/[\u3000-\u30ff\u4e00-\u9fff]/.test(s)) s = s.replace(/\s+[A-Za-z][A-Za-z0-9\s&'.\-]*$/, "");
+  s = s.split("/")[0].trim();
+  return s || "コース名不明";
+}
 const fmtDate = d => d ? d.slice(0,10) : "";
 const fmtDateJP = d => { const t=fmtDate(d); if(!t) return ""; const dt=new Date(t+"T00:00:00"); return `${+t.slice(0,4)}年${+t.slice(5,7)}月${+t.slice(8,10)}日(${DOW[dt.getDay()]})`; };
 const esc = s => String(s??"").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 
+/* コース名の正規化: 空欄や OUT-IN 等の一般名は「同一ゴルフ場内の単一コース」とみなして統合 */
+const GENERIC_COURSE = /^(out[\s\/\-]?in|out|in|front|back|h?9h?|18h?|all)$/i;
+function canonCourse(c){
+  c = String(c || "").replace(/\u3000/g, " ").trim();
+  return GENERIC_COURSE.test(c) ? "" : c;
+}
 /* ---------- 展開: 各ラウンドに計算済みフィールドを付与 ---------- */
 function expand(){
   const list = [];
@@ -308,7 +334,7 @@ function expand(){
                a3:p3[1]?p3[0]/p3[1]:null, a4:p4[1]?p4[0]/p4[1]:null, a5:p5[1]?p5[0]/p5[1]:null,
                putt:putts.length?putts.reduce((a,b)=>a+b,0)/putts.length:null};
     }
-    list.push({i, d:r.d, y:+r.d.slice(0,4), mo:+r.d.slice(5,7), club:r.cl, L, out, inn, tot,
+    list.push({i, d:r.d, y:+r.d.slice(0,4), mo:+r.d.slice(5,7), club:normClub(r.cl), clubRaw:r.cl, course:canonCourse(L.c), L, out, inn, tot,
       par:pars, diff:tot!=null&&pars?tot-pars:null, putt:putts.length?putts.reduce((a,b)=>a+b,0):null,
       w:r.w||"", m:r.m||"", stats, holeRecs, half});
   });
@@ -318,11 +344,21 @@ const ALL = () => expand();
 
 /* ---------- 絞り込み ---------- */
 function filtered(list){
-  let out = list.filter(r =>
-    (state.year==="all" || String(r.y)===state.year) &&
-    (state.course==="all" || courseKey(r)===state.course) &&
-    (state.weather==="all" || r.w===state.weather) &&
-    (!state.q || r.m.includes(state.q)));
+  let out = list.filter(r => {
+    // 年度・期間: "all" | "2026" | "p:2021-2026"(5年区間)
+    let yOK = state.year === "all";
+    if(!yOK){
+      if(state.year.startsWith("p:")){
+        const parts = state.year.slice(2).split("-");
+        yOK = r.y >= +parts[0] && r.y <= +parts[1];
+      } else yOK = String(r.y) === state.year;
+    }
+    const q = state.q;
+    return yOK &&
+      (state.course==="all" || courseKey(r)===state.course) &&
+      (state.weather==="all" || r.w===state.weather) &&
+      (!q || r.club.includes(q) || (r.clubRaw||"").includes(q) || r.m.includes(q));
+  });
   const k = state.sort.key, dir = state.sort.dir;
   out.sort((a,b)=>{
     let va, vb;
@@ -335,7 +371,7 @@ function filtered(list){
   });
   return out;
 }
-function courseKey(r){ return r.club + "|" + r.L.c; }
+function courseKey(r){ return r.club; } /* 同じゴルフ場名ならティー・コース名の揺れも全て同一にまとめる(別コースは「袖ヶ浦カンツリークラブ 新袖コース」のようにクラブ名自体が別) */
 
 /* ---------- SVG チャート描画ユーティリティ ---------- */
 const NS = "http://www.w3.org/2000/svg";
@@ -356,10 +392,11 @@ function bindTip(node, html){
 }
 
 /* スコア推移(散布図+移動平均) */
+function chartW(){ return Math.min(560, Math.max(300, (document.documentElement.clientWidth || 800) - 52)); }
 function chartTrend(list, svg){
   svg.innerHTML = "";
   list = list.slice().sort((a,b)=>a.d.localeCompare(b.d)); // 昇順でないと座標が壊れるため必ず整列
-  const W = 560, H = 260, m = {t:14, r:14, b:26, l:34};
+  const W = chartW(), H = 260, m = {t:14, r:14, b:26, l:34};
   svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
   const iw = W-m.l-m.r, ih = H-m.t-m.b;
   if(list.length < 2){ svg.appendChild(noData(W,H)); return; }
@@ -375,7 +412,7 @@ function chartTrend(list, svg){
   el("line",{x1:m.l,x2:m.l+iw,y1:m.t+ih,y2:m.t+ih,class:"axis"},svg);
   el("line",{x1:m.l,x2:m.l,y1:m.t,y2:m.t+ih,class:"axis"},svg);
   const years = []; for(let yy=t0.getFullYear(); yy<=t1.getFullYear(); yy++) years.push(yy);
-  const ystep = years.length > 8 ? Math.ceil(years.length/8) : 1;
+  const ystep = Math.max(1, Math.ceil(years.length * 34 / iw));
   years.forEach((yy,i)=>{ if(i%ystep) return;
     el("text",{x:x(yy+"-01-01"),y:H-8,"text-anchor":"middle"},svg).textContent=yy; });
   // 5R移動平均
@@ -404,7 +441,7 @@ function noData(W,H){
 function chartBars(svg, items, opts){
   opts = opts || {};
   svg.innerHTML = "";
-  const W = 560, H = 240, m = {t:22, r:10, b:24, l:34};
+  const W = chartW(), H = 240, m = {t:22, r:10, b:24, l:34};
   svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
   const iw = W-m.l-m.r, ih = H-m.t-m.b;
   if(!items.length){ svg.appendChild(noData(W,H)); return; }
@@ -418,13 +455,14 @@ function chartBars(svg, items, opts){
     el("text",{x:m.l-6,y:y(v)+3.5,"text-anchor":"end"},svg).textContent=v;
   }
   const bw = iw/items.length;
+  const lskip = bw < 36 ? Math.ceil(36/bw) : 1; // 幅が狭い時はラベル間引き
   items.forEach((d,i)=>{
     if(d.avg==null) return;
     const x0 = m.l + i*bw + bw*0.16, w2 = bw*0.68;
     const b = el("rect",{x:x0, y:y(d.avg), width:w2, height:m.t+ih-y(d.avg), rx:2.5,
       class:"bar"+(opts.dim && opts.dim(d) ? " dim":"")},svg);
     el("text",{x:x0+w2/2, y:y(d.avg)-5, "text-anchor":"middle", class:"barlbl"},svg).textContent=fmtV(d.avg);
-    el("text",{x:x0+w2/2, y:H-8, "text-anchor":"middle"},svg).textContent=d.label;
+    if(i % lskip === 0) el("text",{x:x0+w2/2, y:H-8, "text-anchor":"middle"},svg).textContent=d.label;
     if(d.onclick) b.addEventListener("click", d.onclick);
     if(d.tip) bindTip(b, d.tip);
   });
@@ -472,8 +510,11 @@ function renderCourses(list){
   const by = new Map();
   list.forEach(r=>{
     const k = courseKey(r);
-    if(!by.has(k)) by.set(k, {full:r.club, club:r.club.split("/")[0], course:r.L.c, tee:r.L.t, n:0, tots:[], best:null});
-    const o = by.get(k); o.n++; if(r.tot!=null){ o.tots.push(r.tot); if(o.best==null||r.tot<o.best) o.best=r.tot; }
+    if(!by.has(k)) by.set(k, {full:r.club, club:r.club, course:r.course, tees:new Map(), n:0, tots:[], best:null});
+    const o = by.get(k); o.n++;
+    const t = r.L.t || "—";
+    o.tees.set(t, (o.tees.get(t)||0)+1);
+    if(r.tot!=null){ o.tots.push(r.tot); if(o.best==null||r.tot<o.best) o.best=r.tot; }
   });
   const rows = [...by.values()].filter(o=>o.tots.length).sort((a,b)=>b.n-a.n).slice(0,10);
   const w = document.getElementById("courses");
@@ -482,9 +523,10 @@ function renderCourses(list){
   w.innerHTML = "";
   rows.forEach(o=>{
     const avg = o.tots.reduce((a,b)=>a+b,0)/o.tots.length;
+    const tee = [...o.tees.entries()].sort((a,b)=>b[1]-a[1])[0][0];
     const row = document.createElement("div"); row.className="crow";
     const barW = amax===amin ? 100 : Math.max(6,(1-(avg-amin)/(amax-amin))*100);
-    row.innerHTML = `<div class="cn">${esc(o.club)}<small>${esc(o.course)} / ${esc(o.tee||"—")}</small></div>
+    row.innerHTML = `<div class="cn">${esc(o.club)}<small>${esc(o.course)} / ${esc(tee)}${o.tees.size>1?` ほか${o.tees.size-1}ティー`:""}</small></div>
       <div class="num">${o.n}<small style="color:#8AA08F">回</small></div>
       <div class="num"><b>${o.best}</b></div>
       <div class="num">${avg.toFixed(1)}</div>
@@ -535,7 +577,7 @@ function diffCls(d){ return d==null?"":d<=10?"diff-g":d<=20?"diff-m":"diff-b"; }
 function rowEl(r, best){
   const tr = document.createElement("tr");
   tr.innerHTML = `<td class="d">${r.d}<small style="color:#8AA08F"> ${r.mo}月</small></td>
-    <td class="pl">${esc(r.club.split("/")[0])}<small>${esc(r.L.c)} / ${esc(r.L.t||"—")}</small></td>
+      <td class="pl">${esc(r.club)}<small>${esc([r.course, r.L.t].filter(Boolean).join(" / ")||"—")}</small></td>
     <td>${r.out??"—"}</td><td>${r.inn??"—"}</td>
     <td class="t">${r.tot??"—"}${r.tot!=null&&r.tot===best?' <span class="bestflag">★</span>':""}</td>
     <td class="${diffCls(r.diff)}">${r.diff!=null?(r.diff>0?"+":"")+r.diff:"—"}</td>
@@ -652,9 +694,9 @@ function openModal(i){
   document.getElementById("modal").innerHTML = `
     <div class="mclose"><button id="mclose" aria-label="閉じる">×</button></div>
     <h3>${fmtDateJP(e.d)}</h3>
-    <div class="mmeta"><span>⛳ ${esc(e.club)}</span><span>${esc(L.c)} / ${esc(L.t||"—")}</span><span>${esc(e.w)}</span></div>
+    <div class="mmeta"><span>⛳ ${esc(e.club)}</span><span>${esc([e.course, L.t].filter(Boolean).join(" / ")||"—")}</span><span>${esc(e.w)}</span></div>
     ${e.m?`<div class="mmemo">${esc(e.m)}</div>`:""}
-    ${sc_table}
+    <div class="scwrap">${sc_table}</div>
     ${st?`<div class="mstats">
       <div class="tile"><div class="lb">対パー</div><div class="v">${e.diff>0?"+":""}${e.diff}</div></div>
       <div class="tile"><div class="lb">バーディー</div><div class="v">${st.bird}</div></div>
@@ -676,10 +718,28 @@ function fillSelect(id, opts, cur){
   s.value = cur;
 }
 function buildFilterOptions(list){
+  // 年度・期間: 単年 + 5年区間(最古の年から5年ずつ、端数は最後の区間に吸収)
   const years = [...new Set(list.map(r=>r.y))].sort((a,b)=>b-a);
-  fillSelect("fYear", [{v:"all",t:"全期間"}].concat(years.map(y=>({v:String(y),t:y+"年"}))), state.year);
+  const yMin = years[years.length-1], yMax = years[0];
+  const buckets = [];
+  for(let s = yMin; s <= yMax; s += 5){
+    const e = Math.min(s+4, yMax);
+    buckets.push({s, e});
+    if(e === yMax) break;
+  }
+  if(buckets.length > 1 && buckets[buckets.length-1].e - buckets[buckets.length-1].s < 2){
+    const last = buckets.pop();
+    buckets[buckets.length-1].e = yMax; // 端数の区間は前の区間へ統合
+  }
+  const sel = document.getElementById("fYear");
+  sel.innerHTML = `<option value="all">全期間</option>` +
+    `<optgroup label="単年">` + years.map(y=>`<option value="${y}">${y}年</option>`).join("") + `</optgroup>` +
+    `<optgroup label="期間">` + buckets.map(b=>`<option value="p:${b.s}-${b.e}">${b.s}〜${b.e}年</option>`).join("") + `</optgroup>`;
+  sel.value = state.year;
+  if(sel.value !== state.year){ state.year = "all"; sel.value = "all"; }
   const cs = [...new Set(ALL().map(courseKey))].sort((a,b)=>a.localeCompare(b,"ja"));
-  const courseNames = new Map(ALL().map(r=>[courseKey(r), r.club.split("/")[0]+"("+r.L.c+")"]));
+  /* 特定のコース名がある時だけ「(コース名)」を添える(総称のみのゴルフ場はダッシュを表示しない) */
+  const courseNames = new Map(ALL().map(r=>[courseKey(r), r.course ? r.club+"("+r.course+")" : r.club]));
   fillSelect("fCourse", [{v:"all",t:"全コース"}].concat(cs.map(k=>({v:k,t:courseNames.get(k)}))), state.course);
   const ws = [...new Set(ALL().map(r=>r.w).filter(Boolean))];
   fillSelect("fWeather", [{v:"all",t:"全て"}].concat(ws.map(w=>({v:w,t:w}))), state.weather);
@@ -873,6 +933,8 @@ function download(name, content, type){
 }
 
 /* ---------- 起動 ---------- */
+let rzT;
+addEventListener("resize", ()=>{ clearTimeout(rzT); rzT = setTimeout(render, 250); });
 (function init(){
   const ds = ALL().map(r=>r.d);
   document.getElementById("headSub").textContent =
