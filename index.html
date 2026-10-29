@@ -177,6 +177,41 @@ footer .reset{color:var(--red);border:none;background:none;cursor:pointer;text-d
 .empty{padding:34px;text-align:center;color:var(--mut);border:1.5px dashed var(--line-strong);border-radius:9px;background:#FBFDF9}
 .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:var(--pine);color:#F2F6EF;padding:10px 18px;border-radius:8px;font-size:13px;z-index:70;box-shadow:0 6px 20px rgba(12,43,31,.35);opacity:0;transition:opacity .25s;pointer-events:none;max-width:90vw}
 .toast.on{opacity:1}
+/* ---------- 写真取込 ---------- */
+.phead{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:10px}
+.pintro{background:#FBFDF9;border:1px solid var(--line);border-radius:8px;padding:10px 12px;font-size:12.5px;color:var(--ink);line-height:1.7;margin-bottom:12px}
+.pbtns{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.pbtns .btn{color:var(--pine);border-color:var(--pine)}
+.pbtns .btn.solid{background:var(--pine);color:#F2F6EF}
+.prow{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;margin-bottom:6px;background:#fff;font-size:13px;color:var(--ink)}
+.prow[role="button"]{cursor:pointer}
+.prow[role="button"]:hover{border-color:var(--pine)}
+.prow.donep{opacity:.62}
+.pnum{width:26px;height:26px;border-radius:50%;background:var(--pine);color:#F2F6EF;display:grid;place-items:center;font-size:12px;flex:none}
+.prow.donep .pnum{background:#8AA08F}
+.pname{flex:1;min-width:0}
+.pname small{display:block;color:var(--mut);font-size:11px}
+.pstate{font-size:11.5px;color:var(--mut);flex:none}
+.pentry{display:grid;grid-template-columns:1.05fr 1fr;gap:14px;align-items:start}
+.pshotwrap{position:sticky;top:0;max-height:76vh;overflow:auto;background:#123326;border-radius:8px}
+.pshot{width:100%;display:block;cursor:zoom-in}
+.pshot.z{width:260%;max-width:none;cursor:zoom-out}
+.pform .fr{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.pform label{font-size:11.5px;color:var(--mut);display:block;margin-bottom:2px}
+.pform input,.pform select{border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:13px;background:#fff;color:var(--ink)}
+.pform input:focus,.pform select:focus{outline:2px solid var(--pine)}
+.ptot{font-size:14px;margin:2px 0 6px}
+.ptot b{color:var(--pine);font-size:17px}
+.hgridwrap{display:flex;gap:10px;flex-wrap:wrap}
+.hgrid{border-collapse:collapse;font-size:12px;margin:0 0 8px;flex:1;min-width:290px}
+.hgrid th,.hgrid td{border:1px solid var(--line);text-align:center;padding:0}
+.hgrid thead th{background:var(--pine);color:#F2F6EF;font-weight:600;padding:4px 2px}
+.hgrid tbody th{background:#FBFDF9;font-weight:600;font-size:11.5px;padding:0 4px}
+.hgrid input{width:100%;min-width:34px;border:none;padding:7px 2px;font-size:13px;text-align:center;background:transparent;color:var(--ink)}
+.hgrid input:focus{outline:2px solid var(--pine);background:#FBFDF9}
+.hgrid .sum{background:#FBFDF9;font-weight:700;min-width:34px;padding:0 4px}
+.pacts{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+@media(max-width:720px){ .pentry{grid-template-columns:1fr} .pshotwrap{position:static;max-height:38vh} }
 </style>
 </head>
 <body>
@@ -191,7 +226,8 @@ footer .reset{color:var(--red);border:none;background:none;cursor:pointer;text-d
     </div>
   </div>
   <div class="top-actions">
-    <label class="btn solid">CSV 取り込み<input type="file" id="importFile" accept=".csv,text/csv" multiple hidden></label>
+    <button class="btn solid" id="photoBtn" type="button">写真取込</button>
+    <label class="btn">CSV 取り込み<input type="file" id="importFile" accept=".csv,text/csv" multiple hidden></label>
     <button class="btn" id="exportBtn">CSV 書き出し</button>
   </div>
 </header>
@@ -217,7 +253,7 @@ footer .reset{color:var(--red);border:none;background:none;cursor:pointer;text-d
   </section>
 
   <section class="card">
-    <h2>コース別成績 <span class="hint">行クリックでコース絞り込み・上位10コース</span></h2>
+    <h2>コース別成績 <span class="hint">行クリックでコース絞り込み・上位10コース・棒の長さは平均スコアに比例(長い=スコアが高い)</span></h2>
     <div class="chead"><span>ゴルフ場</span><span>回数</span><span>ベスト</span><span>平均</span><span></span></div>
     <div id="courses"></div>
   </section>
@@ -249,12 +285,17 @@ footer .reset{color:var(--red);border:none;background:none;cursor:pointer;text-d
 <footer>
   <div>出典データ: GN+ SCORE(https://score.golfnetwork.co.jp)のラウンド履歴 613件(2011-01-08 〜 2026-10-02)を埋め込み。オフラインで動作します。</div>
   <div>CSVの取り込み形式: このアプリの「CSV 書き出し」で出力される rounds.csv / holes.csv と同じ形式です。新しいスコアを追記したCSVを読み込むと、重複を除いて追加・保存されます(このブラウザー内)。</div>
+  <div>写真からの入力: 右上の「写真取込」から。スコアカード写真を入れたフォルダを選ぶと、写真を見ながらスコアを入力でき、CSV取り込みと同じデータベースに統合されます。</div>
   <div>初期データに戻す: <button class="reset" id="clearBtn" type="button">取り込んだデータをすべて削除</button></div>
 </footer>
 
 <div class="overlay" id="overlay" role="dialog" aria-modal="true" aria-label="スコアカード">
   <div class="modal" id="modal"></div>
 </div>
+<div class="overlay" id="photoOverlay" role="dialog" aria-modal="true" aria-label="写真からスコア入力">
+  <div class="modal" id="photoModal" style="max-width:960px"></div>
+</div>
+<input type="file" id="photoFiles" accept="image/jpeg,image/png,image/webp,image/gif,image/bmp" multiple hidden>
 <div class="tip" id="tip"></div>
 <div class="toast" id="toast"></div>
 <script>
@@ -519,13 +560,14 @@ function renderCourses(list){
   const rows = [...by.values()].filter(o=>o.tots.length).sort((a,b)=>b.n-a.n).slice(0,10);
   const w = document.getElementById("courses");
   if(!rows.length){ w.innerHTML = `<div class="empty">データがありません</div>`; return; }
-  const amin = Math.min(...rows.map(o=>Math.min(...o.tots))), amax = Math.max(...rows.map(o=>Math.max(...o.tots)));
+  /* 棒は「平均スコア」の値にそのまま比例: 80を起点に100までの固定目盛(長い=平均スコアが高い) */
+  const avgOf = o => o.tots.reduce((a,b)=>a+b,0)/o.tots.length;
   w.innerHTML = "";
   rows.forEach(o=>{
-    const avg = o.tots.reduce((a,b)=>a+b,0)/o.tots.length;
+    const avg = avgOf(o);
     const tee = [...o.tees.entries()].sort((a,b)=>b[1]-a[1])[0][0];
     const row = document.createElement("div"); row.className="crow";
-    const barW = amax===amin ? 100 : Math.max(6,(1-(avg-amin)/(amax-amin))*100);
+    const barW = Math.max(4, Math.min(100, (avg - 80) / 20 * 100));
     row.innerHTML = `<div class="cn">${esc(o.club)}<small>${esc(o.course)} / ${esc(tee)}${o.tees.size>1?` ほか${o.tees.size-1}ティー`:""}</small></div>
       <div class="num">${o.n}<small style="color:#8AA08F">回</small></div>
       <div class="num"><b>${o.best}</b></div>
@@ -930,6 +972,215 @@ function download(name, content, type){
   a.href = URL.createObjectURL(new Blob([content], {type}));
   a.download = name; a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href), 3000);
+}
+
+/* ---------- 写真取込: スコアカード写真 → 入力フォーム → 統合DBへ ---------- */
+const PH_KEY = "golfScoreBook.photo.v1";
+let photoAll = [], photoCur = -1, photoURL = null;
+const photoOverlay = document.getElementById("photoOverlay"), photoModal = document.getElementById("photoModal");
+const qs = s2 => photoModal.querySelector(s2), qsAll = s2 => [...photoModal.querySelectorAll(s2)];
+const photoKeyOf = f => f.name + "|" + f.lastModified;
+function phDone(){ try{ return new Set(JSON.parse(localStorage.getItem(PH_KEY) || "[]")); }catch(e){ return new Set(); } }
+function phSetDone(set){ try{ localStorage.setItem(PH_KEY, JSON.stringify([...set])); }catch(e){} }
+function phMark(k){ const s = phDone(); s.add(k); phSetDone(s); }
+function phUnmark(k){ const s = phDone(); s.delete(k); phSetDone(s); }
+function phDateGuess(f){
+  const m = f.name.match(/(20\d{2})[-_.\s]?(\d{1,2})[-_.\s]?(\d{1,2})/);
+  if(m && +m[2] >= 1 && +m[2] <= 12 && +m[3] >= 1 && +m[3] <= 31) return `${m[1]}-${pad2(+m[2])}-${pad2(+m[3])}`;
+  if(f.lastModified){ const dt = new Date(f.lastModified); return `${dt.getFullYear()}-${pad2(dt.getMonth()+1)}-${pad2(dt.getDate())}`; }
+  return "";
+}
+function openPhotoUI(){ (photoAll.length ? renderPhotoList : renderPhotoHome)(); photoOverlay.classList.add("on"); }
+function closePhotoUI(){ photoOverlay.classList.remove("on"); if(photoURL){ URL.revokeObjectURL(photoURL); photoURL = null; } }
+photoOverlay.addEventListener("click", e => { if(e.target === photoOverlay) closePhotoUI(); });
+document.getElementById("photoBtn").addEventListener("click", openPhotoUI);
+document.getElementById("photoFiles").addEventListener("change", e => { loadPhotoFiles(e.target.files, false); e.target.value = ""; });
+photoModal.addEventListener("click", e => {
+  const b = e.target.closest("[data-act]"); if(!b) return;
+  const act = b.dataset.act, i = +b.dataset.i;
+  if(act === "close") closePhotoUI();
+  else if(act === "folder") pickPhotoDir();
+  else if(act === "files") document.getElementById("photoFiles").click();
+  else if(act === "entry") renderPhotoEntry(i);
+  else if(act === "skip"){ phMark(photoKeyOf(photoAll[i])); renderPhotoList(); }
+  else if(act === "reg") registerPhotoRound();
+  else if(act === "list") renderPhotoList();
+  else if(act === "del") deletePhotoRound(b.dataset.k);
+  else if(act === "zoom") b.querySelector("img").classList.toggle("z");
+});
+photoModal.addEventListener("input", e => {
+  if(e.target.id === "parPreset") applyParPreset(e.target.value);
+  if(qs("#pTot")) updatePhotoTotals();
+});
+async function pickPhotoDir(){
+  let dh;
+  try{ dh = await showDirectoryPicker(); }
+  catch(e){
+    if(e && e.name === "AbortError") return;
+    toast("このブラウザーではフォルダ選択が使えないため、ファイル選択に切り替えます");
+    document.getElementById("photoFiles").click();
+    return;
+  }
+  const fs = [];
+  try{
+    for await (const [name, h] of dh.entries()){
+      if(h.kind !== "file" || !/\.(jpe?g|png|webp|gif|bmp)$/i.test(name)) continue;
+      fs.push(await h.getFile());
+    }
+  }catch(e){ toast("フォルダの読み込みに失敗しました: " + e); return; }
+  loadPhotoFiles(fs, true);
+}
+function loadPhotoFiles(list, fromDir){
+  const arr = [...list];
+  const imgs = arr.filter(f => f.type.startsWith("image/") || /\.(jpe?g|png|webp|gif|bmp)$/i.test(f.name));
+  const skipped = arr.length - imgs.length;
+  imgs.sort((a,b) => b.lastModified - a.lastModified);
+  photoAll = imgs;
+  if(!imgs.length){ renderPhotoHome(); toast(fromDir ? "対応している画像(jpg/png等)がフォルダ内にありません" : "画像が選択されていません"); return; }
+  renderPhotoList();
+  if(skipped) toast(`${skipped}件の非対応ファイルをスキップしました(jpg / png / webp 等のみ対応)`);
+}
+function renderPhotoHome(){
+  const n = DATA.rounds.filter(r => r.ph).length;
+  photoModal.innerHTML = `
+  <div class="phead"><h3>写真からスコア入力</h3><button class="btn small" data-act="close" type="button">閉じる</button></div>
+  <div class="pintro">
+    <b>使い方:</b> ① PCに写真用フォルダを作る(例: <b>□＿GOLF DATA\スコアカード写真</b>)<br>
+    ② ラウンド後に撮ったスコアカード写真をそのフォルダに入れる<br>
+    ③ この画面でフォルダを選び、写真を見ながらスコアを入力<br>
+    <small>入力したデータはCSV取り込みと同じ1つのデータベースに統合され、一覧・グラフ・CSV書き出しにすぐ反映されます(写真自体はフォルダ内に残ります)。<br>
+    対応形式: jpg / png / webp。ファイル名に日付(例: 20261029.jpg)が入っていればプレイ日に自動で入ります。</small>
+  </div>
+  <div class="pbtns">
+    <button class="btn solid" data-act="folder" type="button">フォルダを選んで読み込む(PC・Chrome / Edge)</button>
+    <button class="btn" data-act="files" type="button">写真をファイルで選ぶ(iPhone・Safari)</button>
+  </div>
+  ${n ? `<div class="pintro">写真から入力したラウンド: <b>${n}件</b>(下の一覧から削除もできます)</div>` : ""}`;
+  if(n) appendPhotoRounds();
+}
+function renderPhotoList(){
+  if(!photoAll.length){ renderPhotoHome(); return; }
+  const done = phDone();
+  const pend = photoAll.filter(f => !done.has(photoKeyOf(f))).length;
+  const rows = photoAll.map((f, i) => {
+    const isD = done.has(photoKeyOf(f)), g = phDateGuess(f);
+    return `<div class="prow${isD ? " donep" : ""}" data-act="entry" data-i="${i}" role="button">
+      <span class="pnum">${isD ? "✓" : i+1}</span>
+      <span class="pname">${esc(f.name)}<small>${g ? fmtDateJP(g) : "日付は写真から入力"}</small></span>
+      <span class="pstate">${isD ? "入力済み" : "未入力"}</span></div>`;
+  }).join("");
+  photoModal.innerHTML = `
+  <div class="phead"><h3>写真からスコア入力</h3><button class="btn small" data-act="close" type="button">閉じる</button></div>
+  <div class="pbtns"><button class="btn solid" data-act="folder" type="button">フォルダを選び直す</button><button class="btn" data-act="files" type="button">写真をファイルで選ぶ</button></div>
+  <div class="pintro">${pend ? `写真をクリックすると入力画面になります。<b>未入力 ${pend}枚</b> / 全${photoAll.length}枚` : `全${photoAll.length}枚 すべて入力済みです(クリックで入力内容を確認・やり直せます)`}</div>
+  ${rows}`;
+  appendPhotoRounds();
+}
+function appendPhotoRounds(){
+  const ex = ALL();
+  const rows = DATA.rounds.map((r, i) => ({r, e: ex[i]})).filter(x => x.r.ph).sort((a,b) => a.r.d.localeCompare(b.r.d));
+  if(!rows.length) return;
+  const div = document.createElement("div");
+  div.innerHTML = `<h3 style="margin-top:16px">写真から入力したラウンド(${rows.length}件)</h3>` + rows.map(({r, e}) =>
+    `<div class="prow donep" style="margin-top:6px"><span class="pnum">✓</span>
+     <span class="pname">${esc(r.d)} ${esc(normClub(r.cl))}<small>${e && e.tot != null ? e.tot + "打" : "—"}${r.phf ? " / " + esc(r.phf.split("|")[0]) : ""}</small></span>
+     <button class="btn small" data-act="del" data-k="${esc(r.d + "|" + r.cl)}" type="button">削除</button></div>`).join("");
+  photoModal.appendChild(div);
+}
+const P_PAT = {36:[4,4,3,5,4,4,3,5,4], 37:[4,4,3,5,4,4,5,4,4], 35:[4,3,4,5,4,3,4,4,4]};
+function applyParPreset(v){
+  if(!v) return;
+  const ps = qsAll(".ppar");
+  v.split(",").map(Number).forEach((tot, h) => (P_PAT[tot] || P_PAT[36]).forEach((p, k) => { ps[h*9+k].value = p; }));
+  updatePhotoTotals();
+}
+function holeRow(cls, label, start, end, sumCls){
+  return `<tr><th>${label}</th>${Array.from({length: end-start+1}, (_, k) =>
+    `<td><input class="${cls}" inputmode="numeric" aria-label="${label}${start+k}"></td>`).join("")}<td class="sum ${sumCls}"></td></tr>`;
+}
+function holeGrid(){
+  const tbl = (s, e, cap) => `<table class="hgrid"><thead><tr><th>${cap}</th>${Array.from({length: e-s+1}, (_, k) => `<th>${s+k}</th>`).join("")}<th>計</th></tr></thead>
+  <tbody>${holeRow("ppar", "パー", s, e, "pparS")}${holeRow("psc", "スコア", s, e, "pscS")}${holeRow("ppt", "パット", s, e, "pptS")}</tbody></table>`;
+  return `<div class="hgridwrap">${tbl(1, 9, "OUT")}${tbl(10, 18, "IN")}</div>`;
+}
+function renderPhotoEntry(i){
+  const f = photoAll[i]; if(!f){ renderPhotoList(); return; }
+  photoCur = i;
+  if(photoURL) URL.revokeObjectURL(photoURL);
+  photoURL = URL.createObjectURL(f);
+  const clubs = [...new Set(ALL().map(r => r.club))].sort();
+  photoModal.innerHTML = `
+  <div class="phead"><h3>写真からスコア入力 (${i+1}/${photoAll.length})</h3><button class="btn small" data-act="list" type="button">一覧へ戻る</button></div>
+  <div class="pentry">
+    <div class="pshotwrap" data-act="zoom" title="クリックで拡大"><img class="pshot" src="${photoURL}" alt="スコアカード写真"></div>
+    <div class="pform">
+      <div class="fr">
+        <div><label>プレイ日</label><input type="date" id="pDate" value="${phDateGuess(f) || ""}"></div>
+        <div style="flex:1;min-width:150px"><label>ゴルフ場(必須)</label><input id="pClub" list="clubList" placeholder="例: 麻倉ゴルフ倶楽部"><datalist id="clubList">${clubs.map(c => `<option value="${esc(c)}">`).join("")}</datalist></div>
+      </div>
+      <div class="fr">
+        <div><label>コース(任意)</label><input id="pCourse" placeholder="OUT-IN等は空欄でOK"></div>
+        <div><label>ティー(任意)</label><input id="pTee"></div>
+        <div><label>天気</label><select id="pWeather"><option value=""></option><option>晴れ</option><option>曇り</option><option>雨</option><option>風</option><option>雪</option></select></div>
+      </div>
+      <div class="fr" style="align-items:end">
+        <div><label>パーの目安設定(後から直せます)</label><select id="parPreset"><option value="">(選択)</option><option value="36,36">計72 (36・36)</option><option value="37,35">計72 (37・35)</option><option value="35,37">計72 (35・37)</option><option value="35,36">計71 (35・36)</option><option value="36,35">計71 (36・35)</option><option value="35,35">計70 (35・35)</option></select></div>
+        <div style="flex:1;min-width:130px"><label>メモ</label><input id="pMemo" placeholder="ラウンドの記録など"></div>
+      </div>
+      <div class="ptot">合計スコア <b id="pTot">—</b> 打(パーとの差 <span id="pDiff">—</span>)</div>
+      ${holeGrid()}
+      <div class="pacts">
+        <button class="btn solid" data-act="reg" type="button">この内容で登録</button>
+        <button class="btn" data-act="skip" data-i="${i}" type="button">この写真をスキップ</button>
+        <button class="btn" data-act="list" type="button">一覧へ戻る</button>
+      </div>
+    </div>
+  </div>`;
+  updatePhotoTotals();
+  photoModal.scrollTop = 0;
+}
+function updatePhotoTotals(){
+  const sums = cls => qsAll("." + cls);
+  let tot = 0, par = 0;
+  ["pparS", "pscS", "pptS"].forEach(c => qsAll("." + c).forEach(x => x.textContent = ""));
+  [0, 1].forEach(h => {
+    const p = sums("ppar").slice(h*9, h*9+9), s = sums("psc").slice(h*9, h*9+9), t = sums("ppt").slice(h*9, h*9+9);
+    qsAll(".pparS")[h].textContent = p.reduce((a, x) => a + (+x.value || 0), 0) || "";
+    qsAll(".pscS")[h].textContent = s.reduce((a, x) => a + (+x.value || 0), 0) || "";
+    qsAll(".pptS")[h].textContent = t.reduce((a, x) => a + (+x.value || 0), 0) || "";
+  });
+  sums("ppar").forEach(x => par += +x.value || 0);
+  sums("psc").forEach(x => tot += +x.value || 0);
+  qs("#pTot").textContent = tot || "—";
+  qs("#pDiff").textContent = tot && par ? (tot - par > 0 ? "+" : "") + (tot - par) : "—";
+}
+function registerPhotoRound(){
+  const f = photoAll[photoCur]; if(!f) return;
+  const d = qs("#pDate").value, cl = qs("#pClub").value.trim();
+  if(!d || !cl){ toast("プレイ日とゴルフ場を入力してください"); return; }
+  const pars = qsAll(".ppar").map(x => +x.value || null);
+  const sc = qsAll(".psc").map(x => +x.value || null);
+  const pt = qsAll(".ppt").map(x => +x.value || null);
+  if(pars.some(v => !v || v < 2 || v > 7)){ toast("パーが未入力のホールがあります(「パーの目安設定」で一括入力してから直せます)"); return; }
+  if(sc.some(v => !v)){ toast("スコアが未入力のホールがあります"); return; }
+  if(DATA.rounds.some(r => r.d === d && r.cl === cl)){ toast("この日のこのゴルフ場は既に登録があります(重複のため登録しませんでした)"); return; }
+  const L = findLayout(L0(), qs("#pCourse").value.trim(), qs("#pTee").value.trim(), pars, Array(18).fill(null));
+  DATA.rounds.push({d, cl, L, w: qs("#pWeather").value, s: sc, pt, m: qs("#pMemo").value.trim(), ph: 1, phf: photoKeyOf(f)});
+  persist(); DATA = load(); render();
+  phMark(photoKeyOf(f));
+  toast(`登録しました: ${d} ${normClub(cl)}`);
+  const next = photoAll.findIndex((g, j) => !phDone().has(photoKeyOf(g)));
+  next >= 0 ? renderPhotoEntry(next) : renderPhotoList();
+}
+function deletePhotoRound(k){
+  const i = DATA.rounds.findIndex(r => r.ph && r.d + "|" + r.cl === k);
+  if(i < 0) return;
+  const r = DATA.rounds[i];
+  DATA.rounds.splice(i, 1);
+  persist(); DATA = load(); render();
+  if(r.phf) phUnmark(r.phf);
+  toast("削除しました(この写真は未入力に戻ります)");
+  renderPhotoList();
 }
 
 /* ---------- 起動 ---------- */
